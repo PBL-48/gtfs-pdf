@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { datesBetween } from '../src/gtfs/dates';
-import { analyzeStop, assignSymbols, buildIndex, buildTimetable, groupByHour, parseTime } from '../src/gtfs/timetable';
+import { assignMarks } from '../src/gtfs/marks';
+import { analyzeStop, buildIndex, buildTimetable, groupByHour, parseTime } from '../src/gtfs/timetable';
 import type { Gtfs } from '../src/gtfs/types';
 
 const days = (mon: string, sat: string, sun: string) => ({
@@ -42,6 +43,36 @@ function sampleGtfs(): Gtfs {
   };
 }
 
+/** 右回り・左回りの循環系統。行先表示はどちらも「循環」 */
+function loopGtfs(): Gtfs {
+  return {
+    columns: {},
+    tables: {
+      stops: [
+        { stop_id: 'A', stop_name: '駅前' },
+        { stop_id: 'B', stop_name: '市役所' },
+        { stop_id: 'C', stop_name: '公園' },
+      ],
+      routes: [{ route_id: 'L', route_short_name: '循環線' }],
+      trips: [
+        { trip_id: 'CW', route_id: 'L', service_id: 'WEEKDAY', direction_id: '0', trip_headsign: '循環' },
+        { trip_id: 'CCW', route_id: 'L', service_id: 'WEEKDAY', direction_id: '0', trip_headsign: '循環' },
+      ],
+      stop_times: [
+        { trip_id: 'CW', stop_id: 'A', stop_sequence: '1', departure_time: '07:00:00' },
+        { trip_id: 'CW', stop_id: 'B', stop_sequence: '2', departure_time: '07:10:00' },
+        { trip_id: 'CW', stop_id: 'C', stop_sequence: '3', departure_time: '07:20:00' },
+        { trip_id: 'CW', stop_id: 'A', stop_sequence: '4', departure_time: '07:30:00' },
+        { trip_id: 'CCW', stop_id: 'A', stop_sequence: '1', departure_time: '08:00:00' },
+        { trip_id: 'CCW', stop_id: 'C', stop_sequence: '2', departure_time: '08:10:00' },
+        { trip_id: 'CCW', stop_id: 'B', stop_sequence: '3', departure_time: '08:20:00' },
+        { trip_id: 'CCW', stop_id: 'A', stop_sequence: '4', departure_time: '08:30:00' },
+      ],
+      calendar: [{ service_id: 'WEEKDAY', ...days('1', '0', '0') }],
+    },
+  };
+}
+
 const WEEK = datesBetween('20261109', '20261115'); // 月〜日
 
 describe('parseTime', () => {
@@ -69,12 +100,22 @@ describe('analyzeStop', () => {
     expect(analyzeStop(index, 'S2').departures).toHaveLength(0);
   });
 
-  it('系統・方面を便数の多い順にまとめ、最多を無印にする', () => {
+  it('最多の系統を無印、ほかを行先・終点の漢字1文字にする', () => {
     const { groups } = analyzeStop(index, 'S1');
     expect(groups.map((g) => [g.headsign, g.count])).toEqual([['市役所', 2], ['', 1]]);
-    const symbols = assignSymbols(groups);
-    expect(symbols.get(groups[0].key)).toBe('');
-    expect(symbols.get(groups[1].key)).toBe('●');
+    const marks = assignMarks(groups);
+    expect(marks.get(groups[0].key)).toBe('');
+    expect(marks.get(groups[1].key)).toBe('市'); // 行先不明だが終点が市役所
+  });
+});
+
+describe('循環系統', () => {
+  it('行先表示が同じでも、回り方（次の停留所）で別の系統にする', () => {
+    const index = buildIndex(loopGtfs());
+    const { departures, groups } = analyzeStop(index, 'A');
+    expect(departures).toHaveLength(2); // 終着（seq 4）は除く
+    expect(groups.map((g) => g.via)).toEqual(['市役所', '公園']);
+    expect(assignMarks(groups).get(groups[1].key)).toBe('公');
   });
 });
 

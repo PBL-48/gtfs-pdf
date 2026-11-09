@@ -7,7 +7,7 @@ export type GtfsIndex = {
   routes: Map<string, Row>;
   trips: Map<string, Row>;
   stopTimesByStop: Map<string, Row[]>;
-  lastSequenceByTrip: Map<string, number>;
+  stopTimesByTrip: Map<string, Row[]>; // stop_sequence 順
   frequencyTripIds: Set<string>;
   services: ServiceIndex;
 };
@@ -22,32 +22,41 @@ export type Departure = {
   problem?: string;   // 正確に表示できない理由（あれば出力停止）
 };
 
-/** 系統・方面（route × direction_id × 行先） */
-export type RouteGroup = { key: string; routeName: string; directionId: string; headsign: string; count: number };
+/** 系統・方面。route × direction_id × 行先 × 終点 ×（循環なら）次の停留所 */
+export type RouteGroup = {
+  key: string;
+  routeName: string;
+  directionId: string;
+  headsign: string;
+  terminal: string; // 終点の停留所名
+  via: string;      // 循環系統のみ：次の停留所名（回り方の区別）
+  count: number;
+};
 
 /** 同じ出発便の内容を持つ運行日のまとまり（F-22） */
 export type Pattern = { key: string; dates: string[]; departures: Departure[] };
 
-const SYMBOLS = ['', '●', '▲', '■', '◆', '★', '○', '△', '□', '◇', '☆'];
-
 const mapBy = (rows: Row[] = [], column: string) => new Map(rows.map((r) => [r[column], r]));
 
-export function buildIndex({ tables }: Gtfs): GtfsIndex {
-  const stopTimesByStop = new Map<string, Row[]>();
-  const lastSequenceByTrip = new Map<string, number>();
-  for (const st of tables.stop_times ?? []) {
-    if (!stopTimesByStop.has(st.stop_id)) stopTimesByStop.set(st.stop_id, []);
-    stopTimesByStop.get(st.stop_id)!.push(st);
-    const seq = Number(st.stop_sequence);
-    const last = lastSequenceByTrip.get(st.trip_id);
-    if (last === undefined || seq > last) lastSequenceByTrip.set(st.trip_id, seq);
+function groupBy(rows: Row[], column: string): Map<string, Row[]> {
+  const map = new Map<string, Row[]>();
+  for (const r of rows) {
+    if (!map.has(r[column])) map.set(r[column], []);
+    map.get(r[column])!.push(r);
   }
+  return map;
+}
+
+export function buildIndex({ tables }: Gtfs): GtfsIndex {
+  const stopTimes = tables.stop_times ?? [];
+  const stopTimesByTrip = groupBy(stopTimes, 'trip_id');
+  stopTimesByTrip.forEach((list) => list.sort((a, b) => Number(a.stop_sequence) - Number(b.stop_sequence)));
   return {
     stops: mapBy(tables.stops, 'stop_id'),
     routes: mapBy(tables.routes, 'route_id'),
     trips: mapBy(tables.trips, 'trip_id'),
-    stopTimesByStop,
-    lastSequenceByTrip,
+    stopTimesByStop: groupBy(stopTimes, 'stop_id'),
+    stopTimesByTrip,
     frequencyTripIds: new Set((tables.frequencies ?? []).map((f) => f.trip_id)),
     services: buildServiceIndex(tables.calendar, tables.calendar_dates),
   };
@@ -66,28 +75,36 @@ export function parseTime(value = ''): { minutes: number } | { error: string } {
 export function analyzeStop(index: GtfsIndex, stopId: string) {
   const departures: Departure[] = [];
   const groups = new Map<string, RouteGroup>();
+  const nameOf = (id: string) => index.stops.get(id)?.stop_name ?? id;
 
   for (const st of index.stopTimesByStop.get(stopId) ?? []) {
-    const sequence = Number(st.stop_sequence);
-    if (sequence === index.lastSequenceByTrip.get(st.trip_id)) continue; // 終着（降車のみ）
-    if (st.pickup_type === '1') continue;                                 // 乗車不可（F-34）
+    const tripStops = index.stopTimesByTrip.get(st.trip_id) ?? [];
+    const next = tripStops[tripStops.indexOf(st) + 1];
+    if (!next) continue;                  // 終着（降車のみ）
+    if (st.pickup_type === '1') continue; // 乗車不可（F-34）
 
     const trip = index.trips.get(st.trip_id);
     const route = trip ? index.routes.get(trip.route_id) : undefined;
     const headsign = st.stop_headsign || trip?.trip_headsign || ''; // 推測で補わない（F-14）
     const directionId = trip?.direction_id ?? '';
-    const key = JSON.stringify([trip?.route_id ?? '', directionId, headsign]);
+    const terminal = nameOf(tripStops[tripStops.length - 1].stop_id);
+    // 循環系統は行先表示が同じでも回り方が違うことがあるため、次の停留所で区別する
+    const via = isLoop(tripStops, headsign, nameOf) ? nameOf(next.stop_id) : '';
+    const key = JSON.stringify([trip?.route_id ?? '', directionId, headsign, terminal, via]);
 
     const group = groups.get(key) ?? {
       key,
       routeName: route?.route_short_name || route?.route_long_name || trip?.route_id || '不明',
       directionId,
       headsign,
+      terminal,
+      via,
       count: 0,
     };
     group.count += 1;
     groups.set(key, group);
 
+    const sequence = Number(st.stop_sequence);
     const time = parseTime(st.departure_time || st.arrival_time);
     departures.push({
       tripId: st.trip_id,
@@ -101,6 +118,21 @@ export function analyzeStop(index: GtfsIndex, stopId: string) {
 
   departures.sort((a, b) => a.minutes - b.minutes || a.tripId.localeCompare(b.tripId) || a.sequence - b.sequence);
   return { departures, groups: [...groups.values()].sort((a, b) => b.count - a.count) };
+}
+
+/** 始発と終点が同じ停留所名、または行先に「循環」を含む便を循環系統とみなす */
+function isLoop(tripStops: Row[], headsign: string, nameOf: (id: string) => string): boolean {
+  const first = nameOf(tripStops[0].stop_id);
+  const last = nameOf(tripStops[tripStops.length - 1].stop_id);
+  return first === last || headsign.includes('循環');
+}
+
+/** 系統・方面の説明文（画面・凡例で共通） */
+export function describeGroup(g: RouteGroup): string {
+  const parts = [`行先：${g.headsign || '不明'}`];
+  if (g.via) parts.push(`${g.via}方面`);
+  else if (g.terminal && !g.headsign.includes(g.terminal)) parts.push(`終点：${g.terminal}`);
+  return `${g.routeName}（${parts.join('／')}）`;
 }
 
 /** MVPで正しく扱えない条件（F-36, 5.1） */
@@ -157,7 +189,7 @@ function selectionIssues(
   for (const g of groups.filter((g) => !g.headsign)) {
     issues.push({
       level: 'check',
-      message: `行先が不明な系統・方面があります（${g.routeName}）。時刻表には「行先：不明」と表示します`,
+      message: `行先が不明な系統・方面があります（${describeGroup(g)}）。時刻表には「行先：不明」と表示します`,
       action: '運行情報を確認し、必要なら補足注記に記載してください。',
     });
   }
@@ -180,11 +212,6 @@ function selectionIssues(
     });
   }
   return issues;
-}
-
-/** 系統・方面ごとの記号。最も便数の多いものを無印にする（F-32） */
-export function assignSymbols(groups: RouteGroup[]): Map<string, string> {
-  return new Map(groups.map((g, i) => [g.key, SYMBOLS[i] ?? `※${i}`]));
 }
 
 /** 時ごとに分ける。便のない時間帯も行として残す（F-31） */

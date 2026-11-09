@@ -8,7 +8,9 @@ import {
   gtfsToInput, inputToGtfs, isGtfsDate, todayIn,
 } from './gtfs/dates';
 import { loadGtfsZip } from './gtfs/load';
-import { analyzeStop, assignSymbols, buildIndex, buildTimetable } from './gtfs/timetable';
+import { analyzeStop, buildIndex, buildTimetable, describeGroup } from './gtfs/timetable';
+import { assignMarks } from './gtfs/marks';
+import { guessPatternNames } from './gtfs/patternName';
 import type { Gtfs, Issue } from './gtfs/types';
 import { validateGtfs } from './gtfs/validate';
 
@@ -38,7 +40,7 @@ export default function App() {
   const stop = index?.stops.get(stopId);
   const analysis = useMemo(() => (index && stopId ? analyzeStop(index, stopId) : null), [index, stopId]);
   const groups = useMemo(() => analysis?.groups.filter((g) => !excluded.includes(g.key)) ?? [], [analysis, excluded]);
-  const symbols = useMemo(() => assignSymbols(groups), [groups]);
+  const marks = useMemo(() => assignMarks(groups), [groups]);
   const dates = useMemo(() => getPeriodDates(period), [period]);
   const result = useMemo(() => {
     if (!index || !analysis || !dates) return null;
@@ -48,7 +50,8 @@ export default function App() {
 
   const patterns = result?.patterns.filter((p) => p.departures.length > 0) ?? [];
   const noServiceDates = result?.patterns.find((p) => p.departures.length === 0)?.dates ?? [];
-  const patternName = (key: string, i: number) => patternNames[key] ?? `運行パターン${i + 1}`;
+  const autoNames = guessPatternNames(patterns, dates ?? []);
+  const patternName = (key: string, i: number) => patternNames[key] ?? autoNames[i];
 
   // ---- 警告の集約 ----
   const issues: Issue[] = [...(loaded?.issues ?? []), ...(result?.issues ?? [])];
@@ -102,23 +105,19 @@ export default function App() {
     });
 
   // ---- 表示用ラベル ----
-  const stopName = stop ? `${stop.stop_name}${stop.platform_code ? `　のりば ${stop.platform_code}` : ''}` : '';
-  const defaultTitle = stop ? `${stop.stop_name} 時刻表` : '';
+  const platform = stop?.platform_code ? `のりば ${stop.platform_code}` : '';
+  const defaultTitle = stop ? stop.stop_name : '';
   const dataItems = loaded ? describeData(loaded, acquiredOn, timezone) : [];
 
   const sheetInfo: SheetInfo | null =
     stop && dates && loaded
       ? {
           title: title || defaultTitle,
-          stopName,
+          platform,
           periodLabel: `${formatDate(period.start)}〜${formatDate(period.end)}`,
           noServiceText: noServiceDates.length > 0 ? formatDateRanges(noServiceDates) : '',
-          legend: groups.map((g) => ({
-            key: g.key,
-            symbol: symbols.get(g.key) ?? '',
-            label: `${g.routeName}（行先：${g.headsign || '不明'}）`,
-          })),
-          symbols,
+          legend: groups.map((g) => ({ key: g.key, mark: marks.get(g.key) ?? '', label: describeGroup(g) })),
+          marks,
           note,
           metaLabel: [
             `作成日：${formatDate(todayIn(timezone || DEFAULT_TZ))}`,
@@ -182,11 +181,10 @@ export default function App() {
               <ul className="plain">
                 {analysis.groups.map((g) => (
                   <li key={g.key}>
-                    <label>
+                                        <label>
                       <input type="checkbox" checked={!excluded.includes(g.key)} onChange={() => toggleGroup(g.key)} />{' '}
-                      {g.routeName}／行先：{g.headsign || '不明'}／direction_id：{g.directionId || '未設定'}
-                      （GTFS全体で{g.count}回）
-                      {symbols.has(g.key) && <>　記号：{symbols.get(g.key) || '無印'}</>}
+                      {describeGroup(g)}／direction_id：{g.directionId || '未設定'}（GTFS全体で{g.count}回）
+                      {marks.has(g.key) && <>　表示：{marks.get(g.key) || '無印'}</>}
                     </label>
                   </li>
                 ))}
@@ -206,10 +204,7 @@ export default function App() {
               終了日{' '}
               <input type="date" value={gtfsToInput(period.end)} onChange={(e) => setPeriod({ ...period, end: inputToGtfs(e.target.value) })} />
             </label>
-            <p className="hint">
-              期間は「運行日」単位です。深夜0時を過ぎる便（例：25:10）は前日の運行日に含めて表示します。
-              時刻・運行日はGTFSの値をそのまま使い、ブラウザのタイムゾーンでは変換しません。
-            </p>
+            <p className="hint">表示名は適用日の曜日から自動で付けています（祝日は「平日なのに平日パターンでない日」として推定）。必要に応じて書き換えてください。書き換えても適用日は変わりません。</p>
             {patterns.length > 0 && (
               <table className="list">
                 <thead>

@@ -43,9 +43,15 @@ body { margin: 0; font-family: system-ui, sans-serif; color: #222; background: #
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
 }
 .sheet.overflow { outline: 3px dashed #c92a2a; }
-.sheet h1 { font-size: 22pt; margin: 0; }
-.sheet header p { margin: 2px 0; }
-.stop-name { font-size: 14pt; font-weight: bold; }
+.sheet header { text-align: center; margin-bottom: 6px; }
+.sheet header p { margin: 0; }
+.sheet h1 { font-size: 26pt; margin: 0; }
+.platform { font-size: 14pt; font-weight: bold; }
+.pattern-name { font-size: 16pt; font-weight: bold; margin-top: 6px !important; }
+.dates { font-size: 7.5pt; color: #888; }
+
+.minute { display: inline-block; min-width: 3.4em; font-size: 13pt; }
+.mark { font-size: 8pt; vertical-align: top; margin-right: 1px; }
 
 .watermark {
   position: absolute;

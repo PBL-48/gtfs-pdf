@@ -5,11 +5,11 @@ import { groupByHour, type Pattern } from '../gtfs/timetable';
 /** 全ページ共通の表示内容 */
 export type SheetInfo = {
   title: string;
-  stopName: string;
+  platform: string; // 「のりば 1」等。なければ空
   periodLabel: string;
   noServiceText: string;
-  legend: { key: string; symbol: string; label: string }[];
-  symbols: Map<string, string>;
+  legend: { key: string; mark: string; label: string }[];
+  marks: Map<string, string>;
   note: string;
   metaLabel: string;
   confirmed: boolean;
@@ -45,10 +45,13 @@ export function TimetableSheet({ pattern, name, info, overflow, onOverflow }: Pr
 
       <header>
         <h1>{info.title}</h1>
-        <p className="stop-name">{info.stopName}</p>
-        <p><strong>{name}</strong>　適用日：{formatDateRanges(pattern.dates)}</p>
-        <p>対象期間：{info.periodLabel}</p>
-        {info.noServiceText && <p>運行のない日：{info.noServiceText}</p>}
+        {info.platform && <p className="platform">{info.platform}</p>}
+        <p className="pattern-name">{name}</p>
+        <p className="dates">適用日：{formatDateRanges(pattern.dates)}</p>
+        <p className="dates">
+          対象期間：{info.periodLabel}
+          {info.noServiceText && `／運行のない日：${info.noServiceText}`}
+        </p>
       </header>
 
       <table className="timetable">
@@ -60,12 +63,15 @@ export function TimetableSheet({ pattern, name, info, overflow, onOverflow }: Pr
             <tr key={row.hour}>
               <th scope="row">{row.hour}</th>
               <td>
-                {row.departures.map((d) => (
-                  <span key={`${d.tripId}-${d.sequence}`} className="minute">
-                    {info.symbols.get(d.groupKey)}
-                    {String(d.minutes % 60).padStart(2, '0')}
-                  </span>
-                ))}
+                {row.departures.map((d) => {
+                  const mark = info.marks.get(d.groupKey);
+                  return (
+                    <span key={`${d.tripId}-${d.sequence}`} className="minute">
+                      {mark && <span className="mark">{mark}</span>}
+                      {String(d.minutes % 60).padStart(2, '0')}
+                    </span>
+                  );
+                })}
               </td>
             </tr>
           ))}
@@ -75,7 +81,7 @@ export function TimetableSheet({ pattern, name, info, overflow, onOverflow }: Pr
       <footer>
         <ul className="legend">
           {legend.map((l) => (
-            <li key={l.key}>{l.symbol || '無印'}：{l.label}</li>
+            <li key={l.key}>{l.mark || '無印'}：{l.label}</li>
           ))}
         </ul>
         {hasLateNight && <p>24時以降の時刻は深夜0時を過ぎた時刻です（例：25時台＝翌日1時台）。</p>}
