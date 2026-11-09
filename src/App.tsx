@@ -205,7 +205,7 @@ export default function App() {
                   <thead>
                     <tr>
                       <th>表示</th><th>系統</th><th>行先表示</th><th>次の停留所</th><th>先の主な停留所</th>
-                      <th>終点</th><th>回数</th><th>略号</th><th>凡例</th>
+                      <th>終点</th><th>略号</th><th>凡例</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -297,7 +297,6 @@ export default function App() {
                           onChange={(e) => setPatternNames({ ...patternNames, [p.key]: e.target.value })}
                         />
                       </td>
-                      <td>{p.departures.length}</td>
                       <td>{formatDateRanges(p.dates)}（{p.dates.length}日）</td>
                     </tr>
                   ))}
