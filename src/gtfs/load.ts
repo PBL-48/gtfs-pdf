@@ -1,8 +1,4 @@
-// fflate の型宣言が提供されない環境でも実行時の依存は維持する。
-// @ts-expect-error -- fflate の型宣言がプロジェクト側で解決できない場合があるため
 import { unzipSync } from 'fflate';
-// papaparse の型宣言が提供されない環境でも実行時の依存は維持する。
-// @ts-expect-error -- papaparse の型宣言がプロジェクト側で解決できない場合があるため
 import Papa from 'papaparse';
 import type { Gtfs, Issue, Row } from './types';
 
@@ -21,7 +17,7 @@ export function parseGtfsZip(zip: Uint8Array): { gtfs: Gtfs; issues: Issue[] } {
   const issues: Issue[] = [];
   try {
     for (const [path, bytes] of Object.entries(unzipWithLimits(zip))) {
-      readCsv(gtfs, issues, path, bytes as Uint8Array);
+      readCsv(gtfs, issues, path, bytes);
     }
     return { gtfs, issues };
   } catch (e) {
@@ -39,7 +35,7 @@ function unzipWithLimits(zip: Uint8Array) {
   let fileCount = 0;
   let totalBytes = 0;
   return unzipSync(zip, {
-    filter: (file: { name: string; originalSize: number }) => {
+    filter: (file) => {
       const base = file.name.split('/').pop() ?? '';
       // .txt 以外と、macOSが付ける隠しファイル（__MACOSX, ._xxx.txt）は読まない
       if (!base.toLowerCase().endsWith('.txt') || base.startsWith('.') || file.name.includes('__MACOSX')) return false;
@@ -69,8 +65,8 @@ function readCsv(gtfs: Gtfs, issues: Issue[], path: string, bytes: Uint8Array) {
   const result = Papa.parse<Row>(text, {
     header: true,
     skipEmptyLines: true,
-    transformHeader: (h: string) => h.trim(),
-    transform: (v: string) => v.trim(),
+    transformHeader: (h) => h.trim(),
+    transform: (v) => v.trim(),
   });
 
   if (result.data.length > LIMITS.rowsPerFile) {

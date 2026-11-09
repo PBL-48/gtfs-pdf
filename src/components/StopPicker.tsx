@@ -1,7 +1,4 @@
-// React is provided by the application runtime; keep type-checking this file
-// usable in environments where its package declarations are not installed.
-// @ts-expect-error React declarations may be unavailable in the standalone checker.
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Row } from '../gtfs/types';
 
 const MAX_RESULTS = 50;
@@ -25,72 +22,39 @@ export function StopPicker({ stops, selectedId, onSelect }: Props) {
     return [...stops.values()].filter((s) => isBoardingPoint(s) && (s.stop_name?.includes(q) || s.stop_id === q));
   }, [stops, query]);
 
-  return React.createElement(
-    'div',
-    null,
-    React.createElement(
-      'label',
-      null,
-      '停留所名で検索 ',
-      React.createElement('input', {
-        type: 'search',
-        value: query,
-        onChange: (e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value),
-        placeholder: '例：駅前',
-      }),
-    ),
-    query && results.length === 0 && React.createElement('p', null, '該当する乗り場がありません。'),
-    results.length > 0 &&
-      React.createElement(
-        'table',
-        { className: 'list' },
-        React.createElement(
-          'thead',
-          null,
-          React.createElement(
-            'tr',
-            null,
-            React.createElement('th', null, '停留所名'),
-            React.createElement('th', null, 'stop_id'),
-            React.createElement('th', null, 'のりば'),
-            React.createElement('th', null, '親停留所'),
-          ),
-        ),
-        React.createElement(
-          'tbody',
-          null,
-          ...results.slice(0, MAX_RESULTS).map((s: Row) => {
-            const parent = s.parent_station ? stops.get(s.parent_station) : undefined;
-            return React.createElement(
-              'tr',
-              { key: s.stop_id },
-              React.createElement(
-                'td',
-                null,
-                React.createElement(
-                  'label',
-                  null,
-                  React.createElement('input', {
-                    type: 'radio',
-                    name: 'stop',
-                    checked: s.stop_id === selectedId,
-                    onChange: () => onSelect(s.stop_id),
-                  }),
-                  ' ',
-                  s.stop_name,
-                ),
-              ),
-              React.createElement('td', null, s.stop_id),
-              React.createElement('td', null, s.platform_code || '—'),
-              React.createElement(
-                'td',
-                null,
-                s.parent_station ? `${parent?.stop_name ?? '（不明）'}（${s.parent_station}）` : '—',
-              ),
-            );
-          }),
-        ),
-      ),
-    results.length > MAX_RESULTS && React.createElement('p', null, `ほか${results.length - MAX_RESULTS}件あります。検索語を絞り込んでください。`),
+  return (
+    <div>
+      <label>
+        停留所名で検索{' '}
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="例：駅前" />
+      </label>
+      {query && results.length === 0 && <p>該当する乗り場がありません。</p>}
+      {results.length > 0 && (
+        <table className="list">
+          <thead>
+            <tr><th>停留所名</th><th>stop_id</th><th>のりば</th><th>親停留所</th></tr>
+          </thead>
+          <tbody>
+            {results.slice(0, MAX_RESULTS).map((s) => {
+              const parent = s.parent_station ? stops.get(s.parent_station) : undefined;
+              return (
+                <tr key={s.stop_id}>
+                  <td>
+                    <label>
+                      <input type="radio" name="stop" checked={s.stop_id === selectedId} onChange={() => onSelect(s.stop_id)} />{' '}
+                      {s.stop_name}
+                    </label>
+                  </td>
+                  <td>{s.stop_id}</td>
+                  <td>{s.platform_code || '—'}</td>
+                  <td>{s.parent_station ? `${parent?.stop_name ?? '（不明）'}（${s.parent_station}）` : '—'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {results.length > MAX_RESULTS && <p>ほか{results.length - MAX_RESULTS}件あります。検索語を絞り込んでください。</p>}
+    </div>
   );
 }

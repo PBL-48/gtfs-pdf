@@ -1,9 +1,4 @@
-/** @jsx React.createElement */
-/** @jsxFrag React.Fragment */
-// React is provided by the application runtime; keep this file type-checkable
-// in environments where its package declarations are not installed.
-// @ts-expect-error React declarations may be unavailable in the editor environment.
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CHECK_ITEMS, Checklist } from './components/Checklist';
 import { IssueList } from './components/IssueList';
 import { StopPicker } from './components/StopPicker';
@@ -16,14 +11,6 @@ import { loadGtfsZip } from './gtfs/load';
 import { analyzeStop, assignSymbols, buildIndex, buildTimetable } from './gtfs/timetable';
 import type { Gtfs, Issue } from './gtfs/types';
 import { validateGtfs } from './gtfs/validate';
-
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elementName: string]: any;
-    }
-  }
-}
 
 const MAX_DAYS = 400;
 const DEFAULT_TZ = 'Asia/Tokyo';
@@ -50,17 +37,17 @@ export default function App() {
   const timezone = loaded?.gtfs.tables.agency?.[0]?.agency_timezone ?? '';
   const stop = index?.stops.get(stopId);
   const analysis = useMemo(() => (index && stopId ? analyzeStop(index, stopId) : null), [index, stopId]);
-  const groups = useMemo(() => analysis?.groups.filter((g: Parameters<typeof assignSymbols>[0][number]) => !excluded.includes(g.key)) ?? [], [analysis, excluded]);
+  const groups = useMemo(() => analysis?.groups.filter((g) => !excluded.includes(g.key)) ?? [], [analysis, excluded]);
   const symbols = useMemo(() => assignSymbols(groups), [groups]);
   const dates = useMemo(() => getPeriodDates(period), [period]);
   const result = useMemo(() => {
     if (!index || !analysis || !dates) return null;
-    const keys = new Set(groups.map((g: Parameters<typeof assignSymbols>[0][number]) => g.key));
-    return buildTimetable(index, analysis.departures.filter((d: Parameters<typeof buildTimetable>[1][number]) => keys.has(d.groupKey)), groups, dates);
+    const keys = new Set(groups.map((g) => g.key));
+    return buildTimetable(index, analysis.departures.filter((d) => keys.has(d.groupKey)), groups, dates);
   }, [index, analysis, groups, dates]);
 
-  const patterns = result?.patterns.filter((p: ReturnType<typeof buildTimetable>['patterns'][number]) => p.departures.length > 0) ?? [];
-  const noServiceDates = result?.patterns.find((p: ReturnType<typeof buildTimetable>['patterns'][number]) => p.departures.length === 0)?.dates ?? [];
+  const patterns = result?.patterns.filter((p) => p.departures.length > 0) ?? [];
+  const noServiceDates = result?.patterns.find((p) => p.departures.length === 0)?.dates ?? [];
   const patternName = (key: string, i: number) => patternNames[key] ?? `運行パターン${i + 1}`;
 
   // ---- 警告の集約 ----
@@ -69,7 +56,7 @@ export default function App() {
   if (stop && !dates) {
     issues.push({ level: 'stop', message: `対象期間が正しくありません（開始日≦終了日、最大${MAX_DAYS}日）。`, action: '対象期間を指定し直してください。' });
   }
-  if (patterns.some((p: ReturnType<typeof buildTimetable>['patterns'][number]) => overflow[p.key])) {
+  if (patterns.some((p) => overflow[p.key])) {
     issues.push({
       level: 'stop',
       message: 'A4縦1ページに収まらない時刻表があります（プレビューの赤い破線）。自動での縮小・省略は行いません。',
@@ -106,12 +93,12 @@ export default function App() {
   }
 
   const toggleGroup = (key: string) =>
-    setExcluded((list: string[]) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]));
+    setExcluded((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]));
 
   const toggleCheck = (item: string) =>
     setChecked({
       key: contentKey,
-      items: checkedItems.includes(item) ? checkedItems.filter((i: string) => i !== item) : [...checkedItems, item],
+      items: checkedItems.includes(item) ? checkedItems.filter((i) => i !== item) : [...checkedItems, item],
     });
 
   // ---- 表示用ラベル ----
@@ -126,7 +113,7 @@ export default function App() {
           stopName,
           periodLabel: `${formatDate(period.start)}〜${formatDate(period.end)}`,
           noServiceText: noServiceDates.length > 0 ? formatDateRanges(noServiceDates) : '',
-          legend: groups.map((g: Parameters<typeof assignSymbols>[0][number]) => ({
+          legend: groups.map((g) => ({
             key: g.key,
             symbol: symbols.get(g.key) ?? '',
             label: `${g.routeName}（行先：${g.headsign || '不明'}）`,
@@ -156,7 +143,7 @@ export default function App() {
           <h2>1. GTFS ZIPの読み込み</h2>
           <label>
             GTFS ZIPファイル{' '}
-            <input type="file" accept=".zip" onChange={(e: React.ChangeEvent<HTMLInputElement>) => e.target.files?.[0] && handleFile(e.target.files[0])} />
+            <input type="file" accept=".zip" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
           </label>
           <label>
             取得日（任意）{' '}
