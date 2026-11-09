@@ -1,0 +1,82 @@
+/* ===== 画面 ===== */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; color: #222; background: #f3f3f3; }
+
+.app { max-width: 960px; margin: 0 auto; padding: 16px; }
+.notice { border: 2px solid #c92a2a; background: #fff5f5; padding: 8px 12px; }
+.step { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 12px 16px; margin: 12px 0; }
+.step h2 { margin-top: 0; font-size: 1.1rem; }
+.step label { margin-right: 16px; }
+.block { display: block; margin: 8px 0; }
+.block input[type='text'], .block textarea { width: 100%; }
+.hint { color: #555; font-size: 0.9rem; }
+.plain { list-style: none; padding-left: 0; }
+
+.list { border-collapse: collapse; width: 100%; margin: 8px 0; }
+.list th, .list td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+
+.data-info { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px; }
+.data-info div { display: flex; gap: 8px; }
+.data-info dt { font-weight: bold; white-space: nowrap; }
+.data-info dd { margin: 0; }
+
+.issues { list-style: none; padding-left: 0; }
+.issue { border-left: 6px solid; padding: 6px 10px; margin: 6px 0; }
+.issue.stop { border-color: #c92a2a; background: #fff5f5; }
+.issue.check { border-color: #e67700; background: #fff9db; }
+.issue.info { border-color: #1971c2; background: #e7f5ff; }
+.action { font-size: 0.9rem; margin-top: 2px; }
+
+.print { font-size: 1rem; padding: 8px 20px; }
+
+/* ===== 時刻表（A4縦） ===== */
+.preview { padding: 16px; }
+.preview h2 { max-width: 960px; margin: 0 auto 8px; }
+
+.sheet {
+  position: relative;
+  width: 210mm;
+  min-height: 297mm; /* height ではなく min-height：はみ出しを高さで検出するため */
+  margin: 0 auto 16px;
+  padding: 12mm;
+  background: #fff;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+.sheet.overflow { outline: 3px dashed #c92a2a; }
+.sheet h1 { font-size: 22pt; margin: 0; }
+.sheet header p { margin: 2px 0; }
+.stop-name { font-size: 14pt; font-weight: bold; }
+
+.watermark {
+  position: absolute;
+  top: 40%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 40pt;
+  color: rgba(201, 42, 42, 0.25);
+  transform: rotate(-20deg);
+  pointer-events: none;
+}
+
+.timetable { width: 100%; border-collapse: collapse; margin: 8px 0; }
+.timetable th, .timetable td { border: 1px solid #333; padding: 2px 6px; }
+.timetable thead th { background: #eee; }
+.timetable tbody th { width: 3em; text-align: center; font-size: 13pt; }
+.minute { display: inline-block; min-width: 3.2em; font-size: 13pt; }
+
+.sheet footer { font-size: 9pt; }
+.legend { list-style: none; padding-left: 0; margin: 4px 0; }
+.note { white-space: pre-wrap; }
+.meta { color: #555; }
+
+/* ===== 印刷 ===== */
+@page { size: A4 portrait; margin: 0; }
+
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .preview { padding: 0; }
+  .sheet { margin: 0; box-shadow: none; outline: none; break-after: page; }
+  .sheet:last-child { break-after: auto; }
+}
