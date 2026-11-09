@@ -140,32 +140,6 @@ function sharedPlatformGtfs(): Gtfs {
     },
   };
 }
-function sharedPlatformGtfs(): Gtfs {
-  return {
-    columns: {},
-    tables: {
-      stops: [
-        { stop_id: 'N', stop_name: '国立駅北口' },
-        { stop_id: 'S', stop_name: '国立駅南口' },
-        { stop_id: 'H', stop_name: '国立病院' },
-      ],
-      routes: [{ route_id: 'K', route_short_name: 'くにっこ' }],
-      trips: [
-        { trip_id: 'OUT', route_id: 'K', service_id: 'WEEKDAY', trip_headsign: 'くにっこ' },
-        { trip_id: 'IN', route_id: 'K', service_id: 'WEEKDAY', trip_headsign: 'くにっこ' },
-      ],
-      stop_times: [
-        { trip_id: 'OUT', stop_id: 'N', stop_sequence: '1', departure_time: '09:00:00' },
-        { trip_id: 'OUT', stop_id: 'S', stop_sequence: '2', departure_time: '09:05:00' },
-        { trip_id: 'OUT', stop_id: 'H', stop_sequence: '3', departure_time: '09:20:00' },
-        { trip_id: 'IN', stop_id: 'H', stop_sequence: '1', departure_time: '10:00:00' },
-        { trip_id: 'IN', stop_id: 'S', stop_sequence: '2', departure_time: '10:15:00' },
-        { trip_id: 'IN', stop_id: 'N', stop_sequence: '3', departure_time: '10:20:00' },
-      ],
-      calendar: [{ service_id: 'WEEKDAY', ...days('1', '0', '0') }],
-    },
-  };
-}
 
 describe('方向の区別', () => {
   it('循環系統：行先表示が同じでも、回り方（次の停留所）で別の系統にする', () => {
