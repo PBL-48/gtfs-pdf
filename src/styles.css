@@ -14,6 +14,8 @@ body { margin: 0; font-family: system-ui, sans-serif; color: #222; background: #
 
 .list { border-collapse: collapse; width: 100%; margin: 8px 0; }
 .list th, .list td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+.list input[type='text'] { width: 100%; }
+.list input.mark-input { width: 3em; text-align: center; }
 
 .data-info { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 16px; }
 .data-info div { display: flex; gap: 8px; }

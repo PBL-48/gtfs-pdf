@@ -8,9 +8,9 @@ import {
   gtfsToInput, inputToGtfs, isGtfsDate, todayIn,
 } from './gtfs/dates';
 import { loadGtfsZip } from './gtfs/load';
-import { analyzeStop, buildIndex, buildTimetable, describeGroup } from './gtfs/timetable';
-import { assignMarks } from './gtfs/marks';
+import { assignMarks, duplicateMarks } from './gtfs/marks';
 import { guessPatternNames } from './gtfs/patternName';
+import { analyzeStop, buildIndex, buildTimetable, describeGroup, type RouteGroup } from './gtfs/timetable';
 import type { Gtfs, Issue } from './gtfs/types';
 import { validateGtfs } from './gtfs/validate';
 
@@ -27,6 +27,8 @@ export default function App() {
   const [acquiredOn, setAcquiredOn] = useState(''); // 取得日（YYYY-MM-DD、任意）
   const [stopId, setStopId] = useState('');
   const [excluded, setExcluded] = useState<string[]>([]); // 選択を外した系統・方面
+  const [markEdits, setMarkEdits] = useState<Record<string, string>>({});   // 系統キー → 手入力の略号
+  const [labelEdits, setLabelEdits] = useState<Record<string, string>>({}); // 系統キー → 手入力の凡例
   const [period, setPeriod] = useState<Period>({ start: '', end: '' });
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
@@ -40,7 +42,9 @@ export default function App() {
   const stop = index?.stops.get(stopId);
   const analysis = useMemo(() => (index && stopId ? analyzeStop(index, stopId) : null), [index, stopId]);
   const groups = useMemo(() => analysis?.groups.filter((g) => !excluded.includes(g.key)) ?? [], [analysis, excluded]);
-  const marks = useMemo(() => assignMarks(groups), [groups]);
+  const autoMarks = useMemo(() => assignMarks(groups), [groups]);
+  const marks = new Map(groups.map((g) => [g.key, markEdits[g.key] ?? autoMarks.get(g.key) ?? '']));
+  const labelOf = (g: RouteGroup) => labelEdits[g.key] || describeGroup(g, groups);
   const dates = useMemo(() => getPeriodDates(period), [period]);
   const result = useMemo(() => {
     if (!index || !analysis || !dates) return null;
@@ -59,6 +63,13 @@ export default function App() {
   if (stop && !dates) {
     issues.push({ level: 'stop', message: `対象期間が正しくありません（開始日≦終了日、最大${MAX_DAYS}日）。`, action: '対象期間を指定し直してください。' });
   }
+  for (const mark of duplicateMarks(marks)) {
+    issues.push({
+      level: 'stop',
+      message: `${mark ? `略号「${mark}」` : '無印'}が複数の系統・方面に付いており、時刻表で区別できません。`,
+      action: '「3. 系統・方面」で略号を変更してください。',
+    });
+  }
   if (patterns.some((p) => overflow[p.key])) {
     issues.push({
       level: 'stop',
@@ -69,7 +80,10 @@ export default function App() {
   const blocked = issues.some((i) => i.level === 'stop');
 
   // ---- 確認チェック：内容が変わったら自動で解除（4章） ----
-  const contentKey = JSON.stringify([loaded?.fileName, loaded?.loadedAt.getTime(), acquiredOn, stopId, excluded, period, title, note, patternNames]);
+  const contentKey = JSON.stringify([
+    loaded?.fileName, loaded?.loadedAt.getTime(), acquiredOn, stopId, excluded,
+    markEdits, labelEdits, period, title, note, patternNames,
+  ]);
   const checkedItems = checked.key === contentKey ? checked.items : [];
   const confirmed = CHECK_ITEMS.every((item) => checkedItems.includes(item));
   const canPrint = confirmed && !blocked && patterns.length > 0;
@@ -82,9 +96,7 @@ export default function App() {
     const today = todayIn(gtfs.tables.agency?.[0]?.agency_timezone || DEFAULT_TZ);
     setLoaded({ gtfs, issues: loadIssues, fileName: file.name, loadedAt: new Date() });
     setPeriod({ start: today, end: addDays(today, 27) });
-    setStopId('');
-    setExcluded([]);
-    setTitle('');
+    selectStop('');
     setPatternNames({});
     setLoading(false);
   }
@@ -92,11 +104,21 @@ export default function App() {
   function selectStop(id: string) {
     setStopId(id);
     setExcluded([]);
+    setMarkEdits({});
+    setLabelEdits({});
     setTitle('');
   }
 
   const toggleGroup = (key: string) =>
     setExcluded((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]));
+
+  function resetMark(key: string) {
+    setMarkEdits((edits) => {
+      const next = { ...edits };
+      delete next[key];
+      return next;
+    });
+  }
 
   const toggleCheck = (item: string) =>
     setChecked({
@@ -116,7 +138,7 @@ export default function App() {
           platform,
           periodLabel: `${formatDate(period.start)}〜${formatDate(period.end)}`,
           noServiceText: noServiceDates.length > 0 ? formatDateRanges(noServiceDates) : '',
-          legend: groups.map((g) => ({ key: g.key, mark: marks.get(g.key) ?? '', label: describeGroup(g) })),
+          legend: groups.map((g) => ({ key: g.key, mark: marks.get(g.key) ?? '', label: labelOf(g) })),
           marks,
           note,
           metaLabel: [
@@ -178,17 +200,70 @@ export default function App() {
             {analysis.groups.length === 0 ? (
               <p>この乗り場から乗車できる便はありません。</p>
             ) : (
-              <ul className="plain">
-                {analysis.groups.map((g) => (
-                  <li key={g.key}>
-                                        <label>
-                      <input type="checkbox" checked={!excluded.includes(g.key)} onChange={() => toggleGroup(g.key)} />{' '}
-                      {describeGroup(g)}／direction_id：{g.directionId || '未設定'}（GTFS全体で{g.count}回）
-                      {marks.has(g.key) && <>　表示：{marks.get(g.key) || '無印'}</>}
-                    </label>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <table className="list">
+                  <thead>
+                    <tr>
+                      <th>表示</th><th>系統</th><th>行先表示</th><th>次の停留所</th><th>先の主な停留所</th>
+                      <th>終点</th><th>回数</th><th>略号</th><th>凡例の文言</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analysis.groups.map((g) => {
+                      const selected = !excluded.includes(g.key);
+                      return (
+                        <tr key={g.key}>
+                          <td>
+                            <input type="checkbox" aria-label={`${g.routeName}を表示`} checked={selected} onChange={() => toggleGroup(g.key)} />
+                          </td>
+                          <td>
+                            {g.routeName}
+                            <div className="hint">direction_id：{g.directionId || '未設定'}／例：{g.sampleTripId}</div>
+                          </td>
+                          <td>{g.headsign || '不明'}</td>
+                          <td>{g.next}</td>
+                          <td>{g.toward || '—'}</td>
+                          <td>{g.terminal}</td>
+                          <td>{g.count}</td>
+                          <td>
+                            {selected && (
+                              <>
+                                <input
+                                  type="text"
+                                  className="mark-input"
+                                  maxLength={2}
+                                  placeholder="無印"
+                                  aria-label={`${g.routeName}の略号`}
+                                  value={marks.get(g.key) ?? ''}
+                                  onChange={(e) => setMarkEdits({ ...markEdits, [g.key]: e.target.value.trim() })}
+                                />
+                                {g.key in markEdits && (
+                                  <button type="button" onClick={() => resetMark(g.key)}>自動</button>
+                                )}
+                              </>
+                            )}
+                          </td>
+                          <td>
+                            {selected && (
+                              <input
+                                type="text"
+                                aria-label={`${g.routeName}の凡例の文言`}
+                                placeholder={describeGroup(g, groups)}
+                                value={labelEdits[g.key] ?? ''}
+                                onChange={(e) => setLabelEdits({ ...labelEdits, [g.key]: e.target.value })}
+                              />
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <p className="hint">
+                  略号は空欄にすると無印になります。無印や同じ略号が複数の系統に付いていると出力停止になります。
+                  凡例の文言は空欄なら自動の文言（灰色で表示）を使います。
+                </p>
+              </>
             )}
           </section>
         )}
@@ -204,7 +279,10 @@ export default function App() {
               終了日{' '}
               <input type="date" value={gtfsToInput(period.end)} onChange={(e) => setPeriod({ ...period, end: inputToGtfs(e.target.value) })} />
             </label>
-            <p className="hint">表示名は適用日の曜日から自動で付けています（祝日は「平日なのに平日パターンでない日」として推定）。必要に応じて書き換えてください。書き換えても適用日は変わりません。</p>
+            <p className="hint">
+              期間は「運行日」単位です。深夜0時を過ぎる便（例：25:10）は前日の運行日に含めて表示します。
+              時刻・運行日はGTFSの値をそのまま使い、ブラウザのタイムゾーンでは変換しません。
+            </p>
             {patterns.length > 0 && (
               <table className="list">
                 <thead>
@@ -229,7 +307,7 @@ export default function App() {
               </table>
             )}
             {noServiceDates.length > 0 && <p>この条件で便のない日：{formatDateRanges(noServiceDates)}</p>}
-            <p className="hint">表示名は「平日」等に変更できますが、変更しても適用日は変わりません。適用日を確認してから名前を付けてください。</p>
+            <p className="hint">表示名は適用日の曜日から自動で付けています（祝日は「平日なのに平日パターンでない日」として推定）。必要に応じて書き換えてください。書き換えても適用日は変わりません。</p>
           </section>
         )}
 
