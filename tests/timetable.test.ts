@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { datesBetween } from '../src/gtfs/dates';
+import type { Gtfs } from '../src/gtfs/types';
 import { assignMarks, duplicateMarks } from '../src/gtfs/marks';
 import { analyzeStop, buildIndex, buildTimetable, describeGroup, groupByHour, parseTime } from '../src/gtfs/timetable';
 const days = (mon: string, sat: string, sun: string) => ({
