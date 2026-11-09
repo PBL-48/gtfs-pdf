@@ -205,7 +205,7 @@ export default function App() {
                   <thead>
                     <tr>
                       <th>表示</th><th>系統</th><th>行先表示</th><th>次の停留所</th><th>先の主な停留所</th>
-                      <th>終点</th><th>回数</th><th>略号</th><th>凡例の文言</th>
+                      <th>終点</th><th>回数</th><th>略号</th><th>凡例</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -218,13 +218,11 @@ export default function App() {
                           </td>
                           <td>
                             {g.routeName}
-                            <div className="hint">direction_id：{g.directionId || '未設定'}／例：{g.sampleTripId}</div>
                           </td>
                           <td>{g.headsign || '不明'}</td>
                           <td>{g.next}</td>
                           <td>{g.toward || '—'}</td>
                           <td>{g.terminal}</td>
-                          <td>{g.count}</td>
                           <td>
                             {selected && (
                               <>
@@ -261,7 +259,7 @@ export default function App() {
                 </table>
                 <p className="hint">
                   略号は空欄にすると無印になります。無印や同じ略号が複数の系統に付いていると出力停止になります。
-                  凡例の文言は空欄なら自動の文言（灰色で表示）を使います。
+                  凡例は空欄なら自動の文言（灰色で表示）を使います。
                 </p>
               </>
             )}
@@ -286,7 +284,7 @@ export default function App() {
             {patterns.length > 0 && (
               <table className="list">
                 <thead>
-                  <tr><th>表示名（編集可）</th><th>便数</th><th>適用日</th></tr>
+                  <tr><th>表示名（編集可）</th><th>対象日</th></tr>
                 </thead>
                 <tbody>
                   {patterns.map((p, i) => (

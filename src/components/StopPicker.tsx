@@ -32,7 +32,7 @@ export function StopPicker({ stops, selectedId, onSelect }: Props) {
       {results.length > 0 && (
         <table className="list">
           <thead>
-            <tr><th>停留所名</th><th>stop_id</th><th>のりば</th><th>親停留所</th></tr>
+            <tr><th>停留所名</th><th>のりば</th><th>親停留所</th></tr>
           </thead>
           <tbody>
             {results.slice(0, MAX_RESULTS).map((s) => {
@@ -45,7 +45,6 @@ export function StopPicker({ stops, selectedId, onSelect }: Props) {
                       {s.stop_name}
                     </label>
                   </td>
-                  <td>{s.stop_id}</td>
                   <td>{s.platform_code || '—'}</td>
                   <td>{s.parent_station ? `${parent?.stop_name ?? '（不明）'}（${s.parent_station}）` : '—'}</td>
                 </tr>

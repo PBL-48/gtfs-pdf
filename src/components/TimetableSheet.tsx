@@ -47,7 +47,6 @@ export function TimetableSheet({ pattern, name, info, overflow, onOverflow }: Pr
         <h1>{info.title}</h1>
         {info.platform && <p className="platform">{info.platform}</p>}
         <p className="pattern-name">{name}</p>
-        <p className="dates">適用日：{formatDateRanges(pattern.dates)}</p>
         <p className="dates">
           対象期間：{info.periodLabel}
           {info.noServiceText && `／運行のない日：${info.noServiceText}`}
@@ -87,7 +86,6 @@ export function TimetableSheet({ pattern, name, info, overflow, onOverflow }: Pr
         {hasLateNight && <p>24時以降の時刻は深夜0時を過ぎた時刻です（例：25時台＝翌日1時台）。</p>}
         {info.note && <p className="note">{info.note}</p>}
         <p>運行情報は変更される場合があります。最新の情報は事業者にご確認ください。</p>
-        <p className="meta">{info.metaLabel}</p>
       </footer>
     </article>
   );
